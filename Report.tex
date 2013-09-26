@@ -1,0 +1,283 @@
+% VDE Template for EUSAR Papers
+% Provided by Barbara Lang und Siegmar Lampe
+% University of Bremen, January 2002
+% English version by Jens Fischer
+% German Aerospace Center (DLR), December 2005
+% Additional modifications by Matthias Wei{\ss}
+% FGAN, January 2009
+
+%-----------------------------------------------------------------------------
+% Type of publication
+\documentclass[a4paper,10pt]{article}
+%-----------------------------------------------------------------------------
+% Other packets: Most packets may be downloaded from www.dante.de and
+% "tcilatex.tex" can be found at (December 2005):
+% http://www.mackichan.com/techtalk/v30/UsingFloat.htm
+% Not all packets are necessarily needed:
+\usepackage[T1]{fontenc}
+\usepackage[latin1]{inputenc}
+%\usepackage{ngerman} % in german language if required
+\usepackage[nooneline,bf,scriptsize]{caption} % Figure descriptions from left margin
+\usepackage{times}
+\usepackage{multicol}
+\usepackage{tabularx}
+\usepackage{booktabs}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage[dvips]{graphicx}
+\usepackage{epsfig}
+\usepackage{listings}
+\usepackage[titletoc,toc,title]{appendix}
+\usepackage[breaklinks]{hyperref}
+\usepackage{url}
+\def\Urlbreaks{\do\/\do-}
+\usepackage{breakurl}
+\input{tcilatex}
+%-----------------------------------------------------------------------------
+% Page Setup
+\textheight24cm \textwidth17cm \columnsep6mm
+\oddsidemargin-5mm                 % depending on print drivers!
+\evensidemargin-5mm                % required margin size: 2cm
+\headheight0cm \headsep0cm \topmargin0cm \parindent0cm
+\pagestyle{empty}                  % delete footer and header
+%----------------------------------------------------------------------------
+% Environment definitions
+\newenvironment*{mytitle}{\begin{LARGE}\bf}{\end{LARGE}\\}%
+\newenvironment*{mysubtitle}{\bf}{\\[1.5ex]}%
+\newenvironment*{myabstract}{\begin{Large}\bf}{\end{Large}\\[2.5ex]}%
+%-----------------------------------------------------------------------------
+% Using Pictures and tables:
+% - Instead "table" write "tablehere" without parameters
+% - Instead "figure" write "figurehere " without parameters
+% - Please insert a blank line before and after \begin{figuerhere} ... \end{figurehere}
+%
+% CAUTION:   The first reference to a figure/table in the text should be formatted fat.
+%
+\makeatletter
+\newenvironment{tablehere}{\def\@captype{table}}{}
+\newenvironment{figurehere}{\def\@captype{figure}\vspace{2ex}}{\vspace{2ex}}
+\makeatother
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{document}
+
+% Please use capital letters in the beginning of important words as for example
+\begin{mytitle}RenderScript\end{mytitle}
+\begin{mysubtitle}Writing high performance applications with Android\end{mysubtitle}
+%
+% Please do not insert a line here
+%
+\\
+Ghilotti Giorgio\\
+Matr. 765836, (giorgio.ghilotti@mail.polimi.it)\\
+%\hspace{10ex}
+%Last-name First-name\\
+%Matr. 123456, (address@email.com)\\
+\begin{flushright}
+\emph{Report for the master course of Embedded Systems}\\
+\emph{Reviser: PhD. Patrick Bellasi (bellasi@elet.polimi.it)}
+\end{flushright}
+
+Received: \today \\
+\hspace{10ex}
+
+\begin{myabstract} Abstract \end{myabstract}
+This work is an overview of RenderScript(RS), Google's framework for Android developers that allows to perform intensive computation using heterogeneous architectures through a two-step compilation. This paper aims to describe how it works, the main components of an RS application, achievable performance, and why it should be used.
+
+\vspace{4ex}	% Please do not remove or reduce this space here.
+\begin{multicols}{2}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\section{Introduction}
+In the last seven years GPUs have become useful, thanks to their greater FLOPS and memory bandwidth versus CPUs, for many more applications than just traditional graphics. They are really good for general data parallel tasks, high performance computing and supercomputing, and
+now these programmable GPUs are arriving on tablets and phones.
+Compared to desktop/server architectures, mobile device's CPU and GPU share the same pool of physical memory (see {\bf Figure \ref{fig:deskmob}}), so they can transfer data to each other without pass through a PCI express bus, making more convenient managing the computational load on different processors.
+In mobile environment we may also have additional processors available, such as a camera ISP or programmable DSP; when possible we would like to use them because they are relatively fixed function and they may provide very good perf/watt.
+
+Another important difference between mobile and desktop is the number of architectural solutions. In mobile there are several variants of ARM: with and without VFP, with and without NEON, and with various register counts. Beside ARM, there are other CPU architectures like x86, several GPU architectures, and even more DSP architectures.
+For that reason the more a code is optimized to run very well on a specific device, the less it performes on any other certain type of SoC.
+
+Android provides a platform-indipendent framework called RenderScript that allows us to write high performance computational code. This means that developers don't have to worry about on which kind of architecture the code will run, they just have a computation needs to run very fast and the RS runtime will mind of using the best processor available at that moment.
+Since RS is a fairly new component in Android, it is subject of continuous improvements, so we don't aim here to give an exaustive technical manual. Indeed, while you read this paper, new features could have been added and others could be deprecated. For up-to-date informations we suggest to read the documentation on the \href{http://developer.android.com/index.html}{official site} for Android developers.
+
+In section 2 we present the main features of the framework and explain when and why it should be used.
+Section 3 explains the procedure to write a RS file.
+In Section 4 are illustrated achievable performance with RS. 
+Finally in section 5 we try to do some remarks.
+
+\begin{figurehere}
+ \centering
+ \includegraphics[width=8cm]{./pictures/desktopvsmobile}
+ \caption{desktop/server architecture vs mobile architecture.}
+ \label{fig:deskmob}
+\end{figurehere}
+
+\section{Why Renderscript}
+The purpose of RenderScript is to develop high performance applications for a wide variety of SoCs without sacrificing portability. RS framework provides a platform-indipendent computation engine that operates at native level.
+
+As explained in~\cite{}, we can point out three main goals, from most to least important:
+\\\\
+{\bf Portability}: application code should be able to run across all devices, even those with radically different hardware.
+
+The first thing one notices about the RS API is that it is focused on the system: one doesn't get a list of devices, or a big collection of device properties so you don't have to try to figure out at run time which device you should use. The RS runtime handles that for you. You simply have a computation that you want to run quickly and the RS engine will manage to execute it on the best processor available.
+\\\\
+{\bf Performance}: get as much performance as possible within the costraints of portability.
+
+RS code is firtly compiled to an intermediate and architecture-indipendent bytecode by the llvm compiler that runs as a part of an Android build. When your app runs on a device, the bytecode is compiled again just-in-time to machine code by another llvm compiler that resides on the device and optimizes the code for the particular target.
+Google works with SoC vendors and gets drivers for their GPUs, DSPs, ISPs, and makes them available on tablets and phones. This way, the RS runtime knows about whatever processors and capabilities it can use.
+\\\\
+{\bf Usability}: simplify development as much as possible.
+
+Java classes are reflected from RS code for an easy integration with existing applications. This allows the control of RS runtime management and execution directly through Java APIs without relying on JNI or some other low-level interface. Furthermore, a collection of RS files (called intrinsics) is provided for the standard graphic computational functions like convolution, YUV to RGB conversion and Gausian blur filtering.
+
+\section{Writing RenderScript file}
+RS files are written in a C99 derived language (C99 is the standard C from 1999, the current standard is C11, since 2011).
+The main component of an RS file is a special function called kernel, here is the place where we have to write the computation we want to performe as fast as possible. Kernel functions take as input a special object called Allocation, which is nothing but a memory space with a number of elements of the same type (see {\bf Table \ref{tab:basicRS}}). The normal behavior of RS when a kernel function is called from a java application, is to launch it across all the elements inside the allocation passed by input.
+
+Some key features of the RS runtime libraries include:
+\begin{itemize}
+\item Memory allocation request features.
+\item A large collection of math functions with both scalar and vector typed overloaded versions of many common routines.
+\item Conversion routines for primitive data types, vectors and matrix routines, date and time routines.
+\item Data types and structures to support the RenderScript system such as Vector types for defining two-, three-, or four-vectors.
+\item Logging functions.
+\end{itemize}
+See \href{http://developer.android.com/guide/topics/renderscript/reference.html}{RS runtime API reference} for more information on the available functions. \\
+
+\begin{tablehere}
+\centering
+\begin{tabularx}{0.5\textwidth}{lX}
+\toprule
+Object & Description \\
+\midrule
+\textbf{Element} & An Element is essentially a C type; it can be a scalar type (e.g. an int), a vector type (e.g. an int4 or a float4) or a C struct declared on your RS code.
+It represents one cell of a memory allocation. \\
+\midrule
+\textbf{Allocation} & An Allocation is a portion of memory containing a collection of a single type of element. It provides the memory to get data from java into RenderScript, making it processesable by one ore more kernels. \\
+\midrule
+\textbf{Type} & A Type is a memory allocation template and constitutes the size of the allocation. It consists of an element and one or more dimentions and describes the layout of the memory.
+You can assign the X, Y, Z dimensions to any positive integer value within the constrains of available memory. So you can have a vector, a matrix or a cube of elements. That allows to do safety checking on copies and kernel launches and also to control how much parallel work actually gets launched by a kernel. \\
+\bottomrule
+\end{tabularx}
+\caption{android object types for RS.}
+\label{tab:basicRS}
+\end{tablehere}
+
+\subsection{RenderScript Kernel}
+\label{sub:RSK}
+An RS kernel is the portion of code that requires extensive computational horsepower and that we want to execute at high performance. It tipically resides in a \emph{.rs} file (also called script) in the \emph{project\_root/src/} directory. Each script contains is own set of kernels, variables and functions. A script can contain:
+\begin{itemize}
+\item A pragma declaration (\emph{\#pragma version(1)}) that declares the RenderScript version used in the script. So far 1 is the only value available.
+\item A pragma declaration (\emph{\#pragma rs java\_package\_name (com.example.app)}) that indicates the package for the java classes reflected from this script.
+\item Some invokable functions, i.e. single-threaded fuctions often used for initial setup.
+\item A certain number of script globals equivalent to a global variable in C and almost used to pass parameters from the java side to RS kernels.
+\item Some number of compute kernels, that are parallel fuctions that executes across every Element within an Allocation.
+\item An optional \emph{init()} function, a special type of invokable function that runs when the script is first instantiated. This allows for some computation to occur automatically at script creation.
+\item static script globals and functions. They can be used normally in any kernel or invokable function in the script, but are not exposed to the Java API. If a script global or function does not need to be called from Java code, it is highly recommended that they are declared static.
+\end{itemize}
+
+A simple kernel may look like the following:
+\begin{lstlisting}[frame=single]
+uchar4 __attribute__((kernel)) invert
+  (uchar4 in,uint32_t x, uint32_t y) {
+	uchar4 out = in;
+	out.r = 255 - in.r;
+	out.g = 255 - in.g;
+	out.b = 255 - in.b;
+	return out;
+}
+\end{lstlisting}
+The attribute kernel applied to the function prototype denotes that is an RS kernel instead of an invokable fuction. The ``in'' argument is a special argument automatically filled in based on the input Allocation passed to the kernel launch. The returned value is automatically written to the appropiate location in the output Allocation.
+A kernel may not have more than an input and an output Allocation.
+A kernel may access to the coordinates of the current execution using x, y and z argument. These are optional, but the type must be uint32\_t.
+\\\\
+The code written in RenderScript generates reflected Java code in Android framework in order to menage the RenderScript lifetime eliminating JNI glue code. We explain this deeper in the following subsections.
+
+\subsection{Reflected Layer}
+The reflected layer is a set of classes that the Android build tools generates to allow access to the RS runtime from the Android framework. This layer also provides methods and constructors that allow you to allocate and work with memory for pointers that are defined in your RS code. The following list describes the major components reflected:
+\begin{itemize}
+\item Every \emph{.rs} file is generated into a class named \emph{project\_ root/gen/package\_name/ScriptC\_renderscript\_filename} of type ScriptC. This file is the \emph{.java} version of your \emph{.rs} file, which you can call from the Android framework. This class contains the following items reflected from the \emph{.rs} file:
+\begin{itemize}
+\item Non-static functions. Functions cannot have a return value, because the RenderScript system is designed to be asynchronous. When your Android framework code calls into RenderScript, the call is queued and executed when possible. This restriction allows the RS system to run without constant interruption and increases efficiency. If functions were allowed to have return values, the call would be blocked until the value was returned.
+If you want the RS code to send a value back to the Android framework, use the \emph{rsSendToClient()} function. 
+\item Non-static global RenderScript variables. Getter and Setter methods are generated for each variable so you can read and write them from Android framework. If a global variable is initialized at the RenderScript runtime layer, those values are used to initialize the corresponding values in the Android framework layer. If global variables are marked as const, then a set method is not generated.
+\item Global pointers. A get method and a special method named \emph{bind\_pointer\_name} (instead of a set() method) are also generated. The second method allows you to bind the memory that is allocated in the Android VM to the RS runtime (you cannot allocate memory in your \emph{.rs} file).
+\end{itemize}
+\item A struct is reflected into its own class named \emph{<project\_root>/gen/package/name/ScriptField\_struct \_name}. This class represents an array of the struct, which allows you to allocate memory for one or more instances of this struct.
+\end{itemize}
+
+\subsection{Using RenderScript from java code}
+Managing RS lifecycle from Android side relies on the API classes located in the \href{http://developer.android.com/reference/android/renderscript/package-summary.html}{android.renderscript}, for devices running Android 3.0 (API level 11) and higher, or in the \href{http://developer.android.com/reference/android/support/v8/renderscript/package-summary.html}{android.support.v8.renderscript} package through a Support Library, for devices running Android 2.2 (API level 8) and higher. Most applications follow the same basic usage patterns:
+\begin{enumerate}
+\item {\bf Initialize a RenderScript context.} The RenderScript context, created with \textit{create(Context)}, ensures that RenderScript can be used and provides an object to control the lifetime of all subsequent RenderScript objects. You should consider context creation to be a potentially long-running operation, since it may create resources on different pieces of hardware; it should not be in an application's critical path if possible. Typically, an application will have only a single RenderScript context at a time.
+\item {\bf Create at least one Allocation to be passed to a script.} An Allocation is a RenderScript object that provides storage for a fixed amount of data. Kernels in scripts take Allocation objects as their input and output, and Allocation objects can be accessed in kernels using \emph{rsGetElementAt\_type()} and \emph{rsSetElementAt\_type()} when bound as script globals. Allocation objects allow arrays to be passed from Java code to RS code and vice-versa. Allocation objects are typically created using \emph{createTyped(RenderScript, Type)} or \emph{createFromBitmap(RenderScript, Bitmap)}.
+\item {\bf Create whatever scripts are necessary.} There are two types of scripts available when using RenderScript:
+\begin{itemize}
+\item {\bf ScriptC}: These are the user-defined scripts as described in section \ref{sub:RSK} above. Every script has a Java class reflected by the RS compiler in order to make the script easy to access from Java code; this class will be named \emph{ScriptC\_filename}. For example, if the kernel above was located in \emph{invert.rs} and a RenderScript context was already located in mRS, the Java code to instantiate the script would be:
+\end{itemize}
+\begin{lstlisting}[frame=single]
+ScriptC_invert invert =
+ new ScriptC_invert(mRenderScript);
+\end{lstlisting}
+\begin{itemize}
+\item {\bf ScriptIntrinsic}: These are built-in RenderScript kernels for common operations, such as Gaussian blur, convolution, and image blending. For more information, see the subclasses of ScriptIntrinsic.
+\end{itemize}
+\item {\bf Populate Allocations with data}. Except for Allocations created with android.renderscript, an Allocation will be populated with empty data when it is first created. To populate an Allocation, use one of the copy methods in Allocation.
+\item {\bf Set any necessary script globals}. Globals may be set using methods in the same \emph{ScriptC\_filename} class with methods named \emph{set\_globalname}. For example, in order to set an int named elements, use the Java method \emph{set\_elements(int)}. RenderScript objects can also be set in kernels; for example, the \emph{rs\_allocation} variable named \emph{lookup} can be set with the method \emph{set\_lookup(Allocation)}.
+\item {\bf Launch the appropriate kernels}. Methods to launch a given kernel will be reflected in the same \emph{ScriptC\_filename} class with methods named \emph{forEach\_kernelname()}. These launches are asynchronous, and they will be serialized following the order in which they are launched. Depending on the arguments passed to the kernel, the method will take either one or two Allocations. By default, a kernel will execute over the entire input or output Allocation; to execute over a subset of that Allocation, pass an appropriate \emph{Script.LaunchOptions} as the last argument to the \emph{forEach method}.
+
+Invoked functions can be launched using the \emph{invoke\_function\_name} methods reflected in the same \emph{ScriptC\_filename} class.
+\item {\bf Copy data out of Allocation objects}. In order to access data from an Allocation from Java code, that data must be copied back to Java buffers using one of the copy methods in Allocation. These functions will synchronize with asynchronous kernel and function launches as necessary.
+\item {\bf Tear down the RenderScript context}. The RenderScript context can be destroyed with \emph{destroy()} or by allowing the RenderScript context object to be garbage collected. This will cause any further use of any object belonging to that context to throw an exception.
+\end{enumerate} 
+
+\section{Performance}
+So far, there aren't many results available about the performance achievable from RenderScrit, because of the young age of the framework.
+In~\cite{qian2012comparison} we can find a comparison between the three programming models in Android: Java in SDK, C++ in NDK and Renderscript. 
+In order to compare them a representative application is developed in all the models, and run in an Android dual-core tablet with Honeycomb 3.2 OS.
+The application chosen is \emph{Balls}, which simulate the movement of several hundred of bodies according to the gravity to the ground and repulsion among them.
+{\bf Figure \ref{fig:models}} shows the best achieved performance. The device sets 60 as the maximal FPS. When the computation for one frame is faster, the device still gives 60 FPS since that is the maximal. We can see that the NDK and RS versions are quite close in performance, while the SDK version lags far behind.
+
+\begin{figurehere}
+ \centering
+ \includegraphics[width=8cm]{./pictures/models}
+ \caption{best achieved performance.}
+ \label{fig:models}
+\end{figurehere}
+
+However this work is quite old since in the meantime Google spent many efforts to improve performance~\cite{Rsperf:2013:Online}, especially for intrinsic kernels, as we can see in {\bf Figure \ref{fig:RSperformance}}, which shows the evolution of RS performance on Galaxy Nexus across different Android platform versions.
+
+\begin{figurehere}
+ \centering
+ \includegraphics[width=8cm]{./pictures/perform}
+ \caption{performance evolution across different Android versions.}
+ \label{fig:RSperformance}
+\end{figurehere}
+
+\section{Conclusion}
+RenderScript seems to be very useful when your goal is writing an application that require high-performance computational tasks in order to develop a single program that runs well on a large number of different target architectures.
+In the contrary, if you mean to optimize an application for a specific target-architecture, RS is not your tool, since it decrease peak performance on specific target platform in order to guarantee very good average performace across a larger number of SoCs.
+Anyway, the choice to use RS should be well pondered, since this framework brings some serious drawbacks.
+First of all it increases project's complexity due to the introduction of a new set of APIs that you have to learn. While the syntax of C99 is well known, the learning curve of RS system is pretty steep, because its APIs are not. Besides the programmer must manage memory allocation manually from java layer. 
+Another issue is that RenderScript can potentially execute on processors other than the main CPU (such as the GPU) and, if this occurs, debugging becomes a problem. Given the nature of RenderScript and how it works with multiple cores, this is not a huge surprise, but this can make finding and eliminating bugs more difficult.
+Ultimately, the choice to use RenderScript, the NDK, or stay within the realm of Java is entirely dependent on the project's specifications. It's an application design decision with considerable ramifications, it effects what programming language you can use, what devices your application can run on, and how complicated your source project is from a maintenance perspective.
+
+\nocite{*}
+% We suggest the use of JabRef for editing your bibliography file (Report.bib)
+\bibliographystyle{plain}
+\bibliography{Report}
+
+\end{multicols}
+
+\pagestyle{empty}                  % delete footer and header
+
+\begin{appendices}
+
+\include{appendixA}
+\include{appendixB}
+
+\end{appendices}
+\end{document}
+

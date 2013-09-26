@@ -1,0 +1,168 @@
+\section{Example of a RenderScript kernel writing and usage}
+\label{app:ex2}
+\noindent In this example we compute the luminance histogram of an image, but we want to do it in two separate steps:
+\begin{itemize}
+\item in the first step the image is splitted in stripes and for each one the histogram is computed.
+\item the second step sums the histograms obtained from the previously step.
+\end{itemize}
+For implementing the program in the way described above we need to write two different kernel functions.
+\\\\
+This is the code for the RenderScript runtime framework, which resides in our .rs file:
+
+\begin{lstlisting}[frame=single]
+
+// The histogram script requires a number of buffers
+
+// The source and destination images.
+rs_allocation gSrc;
+rs_allocation gDest;
+
+// A buffer for the intermediate sums
+// Integer values, [256][steps] in size
+rs_allocation gSums;
+
+// Final sum buffer, Integer, [256] cells in size
+rs_allocation gSum;
+
+// The height and width of the image
+int gWidth;
+int gHeight;
+
+// The step, which is the number of lines processed by each thread
+int gStep;
+
+// The number of steps in total, roughly height / step
+int gSteps;
+
+// The start of the first kernel
+void __attribute__((kernel)) pass1(int in, uint x, uint y) {
+  // Note that x and y will indicate the coordinates of the pixel being processed
+  // This kernel will be run on a range of x = [0] and y = [0 to steps]
+  // Clear our output buffer for this thread.
+  for (int i=0; i < 256; i++) {
+    // Set the value at i,y to 0
+    rsSetElementAt_int(gSums, 0, i, y);
+
+  }
+
+  // Iterate over our image
+  for (int i= 0; i < gStep; i++) {
+    int py= y*gStep + i;	// Compute the y coordinate in the image
+    if (py>= gHeight) return;	// Might be out of range if this is the last step
+
+    // Walk one scanline
+    for (int px=0; px < gWidth; px++) {
+      // Get the pixel and convert to luminance
+      uchar4 c = rsGetElementAt_uchar4(gSrc, px, py);
+      int lum = (77 * c.r + 150 * c.g + 29 * c.b) >> 8;
+
+      // Add one to the bucked for this luminance value
+      int old = rsGetElementAt_int(gSums, lum, y);
+      rsSetElementAt_int(gSums, old+1, lum, y);
+    }
+  }
+}
+
+// This kernel is run on the Sum allocation, so its called once
+// for each of the 256 levels
+// Note, this is a 1D kernel
+int __attribute__((kernel)) pass2(uint x) {
+  int sum = 0;
+
+  // For this level, add in the sum from each of the
+  // separate partial sums
+  for (int i=0; i < gSteps; i++) {
+    sum += rsGetElementAt_int(gSums, x, i);
+  }
+
+  // Return the sum for this level. Since this is a kernel
+  // return value, it will automatically be placed in the allocation.
+  return sum;
+}
+
+// This is an invokable function. It will be called single threaded
+void rescale() {
+  // Find our largest bucket value
+  int maxv = 0;
+  for (int i=0; i < 256; i++) {
+    maxv = max(maxv, rsGetElementAt_int(gSum, i));
+  }
+
+  // Compute the rescale value to to convert bucket values into bar heights.
+  float overMax = (1.f / maxv) * gHeight;
+
+  for (int i=0; i < 256; i++) {
+    int t = rsGetElementAt_int(gSum, i);
+    t = gHeight - (overMax * rsGetElementAt_int(gSum, i));
+    t = max(0, t);
+    rsSetElementAt_int(gSum, t, i);
+  }
+}
+
+
+\end{lstlisting}
+
+\vspace{4ex}
+This is the code we have to write in the Java application that allows to launch our scripts:
+
+\begin{lstlisting}[frame=single]
+
+// Create and load the script
+mScript = new ScriptC_histogram(mRS);
+
+// Setup the globals
+mScript.set_gWidth(width);
+...
+
+// Create the [256][steps] buffer of integers for the partial sums
+Type.Builder tb = new Type.Builder(mRS, Element.I32(mRS));
+tb.setX(256).setY(steps);
+Type t = tb.create();
+mSums = Allocation.createTyped(mRS, t);
+
+// Create the 1D [256] buffer for the final Sums
+mSum = Allocation.createSized(mRS, Element.I32(mRS), 256);
+
+// Set the buffers for the script
+mScript.set_gSums(mSums);
+
+// This first pass should be clipped because we want [step] threads
+// not [256][step] threads
+
+// To do this we have the ability to clip our launch
+// using a LaunchOptions class
+Script.LaunchOptions lo = new Script.LaunchOptions();
+
+// Set the range in the X dimension to be 0 to 1
+// Note: the end is exclusive so this says only run X value 0
+lo.setX(0, 1);
+
+// Run the kernel with our launch options
+// This will spawn one thread per Y coordinate, each with X=0
+mScript.forEach_pass1(mSums, lo);
+
+// Once the first pass is complete, we need to add up our partial sums
+
+// The pass2 launch is unclipped.
+// It spawns one thread per cell in the mSum buffer
+// for a total of 256 threads.
+mScript.forEach_pass2(mSum);
+
+// Finally, we call our rescale function
+mScript.invoke_rescale();
+
+
+\end{lstlisting}
+\vspace{4ex}
+This is an example of an image with its luminance histogram:
+
+\begin{figurehere}
+ \centering
+ \includegraphics[width=0.5\textwidth]{./pictures/bitmap}
+ \label{fig:bitmap}
+\end{figurehere}
+\begin{figurehere}
+ \centering
+ \includegraphics[width=0.5\textwidth]{./pictures/lumhist}
+ \label{fig:lumhist}
+\end{figurehere}
